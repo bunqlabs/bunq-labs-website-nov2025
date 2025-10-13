@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import GUI from 'lil-gui';
 import Stats from 'https://unpkg.com/three@latest/examples/jsm/libs/stats.module.js';
 import {
   planeSize,
@@ -11,6 +10,9 @@ import {
   initialUniforms,
   cameraConfig,
 } from './config.js';
+import { vertexShader, fragmentShader } from './shaders.js';
+import { initDebugPanel } from './debugPanel.js';
+import { WindField } from './windField.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -23,9 +25,14 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.set(...cameraConfig.position);
 camera.lookAt(...cameraConfig.lookAt);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({
+  antialias: window.devicePixelRatio < 2,
+  powerPreference: 'high-performance',
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+// Prevent page scrolling/zooming from intercepting touch interactions
+renderer.domElement.style.touchAction = 'none';
 
 // Stats.js setup
 const stats = new Stats();
@@ -62,93 +69,19 @@ grassGeometry.attributes.position.needsUpdate = true;
 grassGeometry.translate(0, bladeHeight / 2, 0);
 
 const uniforms = {
-  mousePos: { value: new THREE.Vector3(9999, 0, 9999) },
-  mouseDir: { value: new THREE.Vector2(0, 0) },
-  radius: { value: initialUniforms.radius },
-  strength: { value: initialUniforms.strength },
   time: { value: 0.0 },
   turbulenceAmplitude: { value: initialUniforms.turbulenceAmplitude },
   turbulenceFrequency: { value: initialUniforms.turbulenceFrequency },
   damping: { value: initialUniforms.damping },
-  trailStrength: { value: initialUniforms.trailStrength },
-  trailDecay: { value: initialUniforms.trailDecay },
+  windStrength: { value: initialUniforms.windStrength },
+  planeSize: { value: planeSize },
+  windTex: { value: null },
+  // Glow
+  glowThreshold: { value: initialUniforms.glowThreshold },
+  glowBoost: { value: initialUniforms.glowBoost },
 };
 
-const vertexShader = `
-  uniform vec3 mousePos;
-  uniform vec2 mouseDir;
-  uniform float radius;
-  uniform float strength;
-  uniform float time;
-  uniform float turbulenceAmplitude;
-  uniform float turbulenceFrequency;
-  uniform float damping;
-  uniform float trailStrength;
-  uniform float trailDecay;
-  varying float vHeight;
-  varying float vRandomSeed;
-  void main() {
-    vec3 basePos = instanceMatrix[3].xyz;
-    vec3 pos = position;
-    vec2 baseXZ = basePos.xz;
-    vec2 mouseXZ = mousePos.xz;
-    float dist = distance(baseXZ, mouseXZ);
-    float heightFactor = pos.y / 1.0;
-    vHeight = heightFactor;
-
-    // Generate pseudo-random seed based on base position
-    float randomSeed = fract(sin(dot(baseXZ, vec2(12.9898, 78.233))) * 43758.5453);
-    vRandomSeed = randomSeed;
-
-    // Calculate damping multiplier (2x inside interaction zone)
-    float dampingFactor = damping;
-    if (dist < radius) {
-      dampingFactor *= 2.0;
-    }
-
-    // Random bending direction using randomSeed
-    float randomAngle = randomSeed * 2.0 * 3.14159265359;
-    vec2 bendDir = vec2(cos(randomAngle), sin(randomAngle));
-    float bendAmount = dampingFactor * heightFactor;
-
-    // Mouse trail effect
-    vec2 trailBendDir = vec2(0.0, 0.0);
-    float trailBendAmount = 0.0;
-    if (dist < radius && length(mouseDir) > 0.0) {
-      float factor = (1.0 - dist / radius) * trailStrength * heightFactor;
-      trailBendDir = normalize(mouseDir);
-      trailBendAmount = factor;
-    }
-
-    // Apply bending
-    pos.x += bendDir.x * bendAmount;
-    pos.z += bendDir.y * bendAmount;
-
-    // Turbulence
-    float turbulence = sin(basePos.x * turbulenceFrequency + time) *
-                       sin(basePos.z * turbulenceFrequency + time) *
-                       turbulenceAmplitude * heightFactor;
-    pos.x += turbulence;
-    pos.z += turbulence;
-
-    // Compute world position
-    vec4 worldPos = modelViewMatrix * instanceMatrix * vec4(pos, 1.0);
-    gl_Position = projectionMatrix * worldPos;
-  }
-`;
-
-const fragmentShader = `
-  varying float vHeight;
-  varying float vRandomSeed;
-  void main() {
-    vec3 bottomColor = vec3(0.0, 0.0, 0.0); // Black base
-    float grayValue = vRandomSeed * 0.1;     // Randomness in brightness
-    vec3 topColor = vec3(grayValue, grayValue, grayValue); // Random grayscale
-    vec3 baseColor = mix(bottomColor, topColor + 0.1, vHeight);
-
-    gl_FragColor = vec4(baseColor, 1.0);
-  }
-`;
+// Shaders are now provided by ./shaders.js
 
 const grassMaterial = new THREE.ShaderMaterial({
   uniforms: uniforms,
@@ -157,11 +90,7 @@ const grassMaterial = new THREE.ShaderMaterial({
   side: THREE.DoubleSide,
 });
 
-const grass = new THREE.InstancedMesh(
-  grassGeometry,
-  grassMaterial,
-  grassCount
-);
+const grass = new THREE.InstancedMesh(grassGeometry, grassMaterial, grassCount);
 scene.add(grass);
 
 // Position instances
@@ -178,23 +107,80 @@ for (let i = 0; i < grassCount; i++) {
 }
 grass.instanceMatrix.needsUpdate = true;
 
-// Mouse interaction
+// Wind field: ping-pong FBO updated each frame
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
-let lastMousePos = new THREE.Vector3(9999, 0, 9999);
-let trailEffect = new THREE.Vector2(0, 0);
+const windField = new WindField(renderer, initialUniforms.fieldResolution, {
+  decay: initialUniforms.trailDecay,
+  diffusion: initialUniforms.diffusion,
+  advection: initialUniforms.advection,
+  injectionRadius: initialUniforms.injectionRadius,
+  injectionStrength: initialUniforms.injectionStrength,
+});
+uniforms.windTex.value = windField.texture;
+
+let currentGroundPoint = null; // THREE.Vector3 or null
+let lastGroundPoint = null;
+
+// Touch device detection and state
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+let touchActive = false;
 
 window.addEventListener('mousemove', (event) => {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObject(ground);
-  if (intersects.length > 0) {
-    uniforms.mousePos.value.copy(intersects[0].point);
-  } else {
-    uniforms.mousePos.value.set(9999, 0, 9999);
-  }
 });
+
+// Touch input: treat as wind injection only while touching
+renderer.domElement.addEventListener(
+  'touchstart',
+  (e) => {
+    if (e.touches && e.touches.length > 0) {
+      const t = e.touches[0];
+      mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
+      touchActive = true;
+      lastGroundPoint = null; // reset delta at gesture start
+    }
+    e.preventDefault();
+  },
+  { passive: false }
+);
+
+renderer.domElement.addEventListener(
+  'touchmove',
+  (e) => {
+    if (e.touches && e.touches.length > 0) {
+      const t = e.touches[0];
+      mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
+    }
+    e.preventDefault();
+  },
+  { passive: false }
+);
+
+renderer.domElement.addEventListener(
+  'touchend',
+  (e) => {
+    touchActive = false;
+    currentGroundPoint = null;
+    lastGroundPoint = null;
+    e.preventDefault();
+  },
+  { passive: false }
+);
+
+renderer.domElement.addEventListener(
+  'touchcancel',
+  (e) => {
+    touchActive = false;
+    currentGroundPoint = null;
+    lastGroundPoint = null;
+    e.preventDefault();
+  },
+  { passive: false }
+);
 
 // Resize handler
 window.addEventListener('resize', () => {
@@ -203,44 +189,49 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Debug panel
-const gui = new GUI();
-gui.add(uniforms.radius, 'value', 1.0, 10.0, 0.1).name('Trail Radius');
-gui.add(uniforms.strength, 'value', 0.0, 5.0, 0.1).name('Default Bend Strength');
-gui.add(uniforms.trailStrength, 'value', 0.0, 2.0, 0.1).name('Trail Strength');
-gui.add(uniforms.trailDecay, 'value', 0.0, 1.0, 0.01).name('Trail Decay');
-gui.add(uniforms.turbulenceAmplitude, 'value', 0.0, 2.0, 0.1).name('Turbulence Amplitude');
-gui.add(uniforms.turbulenceFrequency, 'value', 0.0, 5.0, 0.1).name('Turbulence Frequency');
-gui.add(uniforms.damping, 'value', 0.0, 2.0, 0.01).name('Default Bend Factor');
+// Debug panel moved to ./debugPanel.js
+const gui = initDebugPanel(uniforms, windField, initialUniforms);
 
 // Animation loop
 function animate(currentTime) {
   requestAnimationFrame(animate);
   stats.begin();
+  // Time and dt
+  const t = currentTime * 0.001;
+  const dt = Math.max(0.001, t - (uniforms.time.value || 0));
+  uniforms.time.value = t;
 
-  // Update mouse direction for trail effect
-  const currentMousePos = uniforms.mousePos.value;
-  if (currentMousePos.x < 9999 && lastMousePos.x < 9999) {
-    const mouseDelta = new THREE.Vector2(
-      currentMousePos.x - lastMousePos.x,
-      currentMousePos.z - lastMousePos.z
-    );
-    trailEffect.lerp(mouseDelta, 0.1); // Smooth the direction
-    uniforms.mouseDir.value.copy(trailEffect);
+  // Raycast ground at current pointer; inject only on touch if on mobile
+  if (!isTouchDevice || touchActive) {
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(ground);
+    lastGroundPoint = currentGroundPoint;
+    currentGroundPoint =
+      intersects.length > 0 ? intersects[0].point.clone() : null;
   } else {
-    trailEffect.set(0, 0);
-    uniforms.mouseDir.value.set(0, 0);
+    lastGroundPoint = null;
+    currentGroundPoint = null;
   }
-  lastMousePos.copy(currentMousePos);
 
-  // Apply trail decay
-  trailEffect.multiplyScalar(uniforms.trailDecay.value);
+  // Build injection params
+  let mouseUv = null;
+  let dir = new THREE.Vector2(0, 0);
+  if (currentGroundPoint && lastGroundPoint) {
+    // Map world XZ to UV 0..1
+    mouseUv = new THREE.Vector2(
+      currentGroundPoint.x / planeSize + 0.5,
+      currentGroundPoint.z / planeSize + 0.5
+    );
+    const dx = currentGroundPoint.x - lastGroundPoint.x;
+    const dz = currentGroundPoint.z - lastGroundPoint.z;
+    dir.set(dx, dz);
+  }
 
-  // Update turbulence
-  uniforms.time.value = currentTime * 0.001;
+  // Update wind field
+  windField.update(mouseUv, dir, dt);
+  uniforms.windTex.value = windField.texture;
 
   renderer.render(scene, camera);
   stats.end();
 }
 animate(performance.now());
-
