@@ -31,8 +31,6 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
-// Prevent page scrolling/zooming from intercepting touch interactions
-renderer.domElement.style.touchAction = 'none';
 
 // Stats.js setup
 const stats = new Stats();
@@ -122,65 +120,10 @@ uniforms.windTex.value = windField.texture;
 let currentGroundPoint = null; // THREE.Vector3 or null
 let lastGroundPoint = null;
 
-// Touch device detection and state
-const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-let touchActive = false;
-
 window.addEventListener('mousemove', (event) => {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 });
-
-// Touch input: treat as wind injection only while touching
-renderer.domElement.addEventListener(
-  'touchstart',
-  (e) => {
-    if (e.touches && e.touches.length > 0) {
-      const t = e.touches[0];
-      mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
-      touchActive = true;
-      lastGroundPoint = null; // reset delta at gesture start
-    }
-    e.preventDefault();
-  },
-  { passive: false }
-);
-
-renderer.domElement.addEventListener(
-  'touchmove',
-  (e) => {
-    if (e.touches && e.touches.length > 0) {
-      const t = e.touches[0];
-      mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
-    }
-    e.preventDefault();
-  },
-  { passive: false }
-);
-
-renderer.domElement.addEventListener(
-  'touchend',
-  (e) => {
-    touchActive = false;
-    currentGroundPoint = null;
-    lastGroundPoint = null;
-    e.preventDefault();
-  },
-  { passive: false }
-);
-
-renderer.domElement.addEventListener(
-  'touchcancel',
-  (e) => {
-    touchActive = false;
-    currentGroundPoint = null;
-    lastGroundPoint = null;
-    e.preventDefault();
-  },
-  { passive: false }
-);
 
 // Resize handler
 window.addEventListener('resize', () => {
@@ -201,17 +144,12 @@ function animate(currentTime) {
   const dt = Math.max(0.001, t - (uniforms.time.value || 0));
   uniforms.time.value = t;
 
-  // Raycast ground at current pointer; inject only on touch if on mobile
-  if (!isTouchDevice || touchActive) {
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(ground);
-    lastGroundPoint = currentGroundPoint;
-    currentGroundPoint =
-      intersects.length > 0 ? intersects[0].point.clone() : null;
-  } else {
-    lastGroundPoint = null;
-    currentGroundPoint = null;
-  }
+  // Raycast ground at current mouse
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObject(ground);
+  lastGroundPoint = currentGroundPoint;
+  currentGroundPoint =
+    intersects.length > 0 ? intersects[0].point.clone() : null;
 
   // Build injection params
   let mouseUv = null;
