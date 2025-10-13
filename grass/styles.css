@@ -1,0 +1,18 @@
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+.gradient {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  mix-blend-mode: color-burn;
+  background: radial-gradient(
+    ellipse at center top,
+    white 0%,
+    black 300%
+  );
+}
+
