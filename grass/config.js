@@ -22,8 +22,8 @@ export const initialUniforms = {
   injectionStrength: 0.15, // base injection power
   fieldResolution: 64, // texture resolution for the wind field
   // Glow behavior
-  glowThreshold: 0.2,
-  glowBoost: 0.5,
+  glowThreshold: 0.3,
+  glowBoost: 0.4,
 };
 
 // Optional camera configuration (kept here for convenience)

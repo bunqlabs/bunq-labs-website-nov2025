@@ -14,11 +14,25 @@ export class WindField {
       injectionStrength: params.injectionStrength ?? 1.0,
     };
 
+    // Detect the most compatible render target type/filters for mobile
+    const isWebGL2 = renderer.capabilities.isWebGL2 === true;
+    const hasHalfFloat = isWebGL2 || renderer.extensions.has('OES_texture_half_float');
+    const hasHalfFloatLinear = isWebGL2 || renderer.extensions.has('OES_texture_half_float_linear');
+    const hasCBHalfFloat = renderer.extensions.has('EXT_color_buffer_half_float');
+    const hasCBFloat = (isWebGL2 && renderer.extensions.has('EXT_color_buffer_float')) || renderer.extensions.has('WEBGL_color_buffer_float');
+
+    let rtType = THREE.HalfFloatType;
+    if (!hasHalfFloat || !(hasCBHalfFloat || isWebGL2)) {
+      // Fallback to Float if renderable; otherwise we will still try half-float as best effort
+      rtType = hasCBFloat ? THREE.FloatType : THREE.HalfFloatType;
+    }
+    const filter = hasHalfFloatLinear ? THREE.LinearFilter : THREE.NearestFilter;
+
     const options = {
-      minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter,
+      minFilter: filter,
+      magFilter: filter,
       format: THREE.RGBAFormat,
-      type: THREE.FloatType,
+      type: rtType,
       depthBuffer: false,
       stencilBuffer: false,
     };
@@ -112,12 +126,12 @@ export class WindField {
   }
 
   clear() {
-    const prevRenderTarget = this.renderer.getRenderTarget();
+    const prevRT = this.renderer.getRenderTarget();
     this.renderer.setRenderTarget(this.rtA);
-    this.renderer.clearColor();
+    this.renderer.clear(true, false, false);
     this.renderer.setRenderTarget(this.rtB);
-    this.renderer.clearColor();
-    this.renderer.setRenderTarget(prevRenderTarget);
+    this.renderer.clear(true, false, false);
+    this.renderer.setRenderTarget(prevRT);
   }
 
   update(mouseUv, mouseDir, dt) {
@@ -154,4 +168,3 @@ export class WindField {
     if (injectionStrength !== undefined) this.material.uniforms.injectionStrength.value = injectionStrength;
   }
 }
-
