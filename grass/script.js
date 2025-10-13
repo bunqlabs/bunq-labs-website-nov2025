@@ -122,65 +122,47 @@ uniforms.windTex.value = windField.texture;
 let currentGroundPoint = null; // THREE.Vector3 or null
 let lastGroundPoint = null;
 
-// Touch device detection and state
+// Pointer events: unify mouse and touch, capture drags/swipes on mobile
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-let touchActive = false;
+let pointerDown = false;
 
-window.addEventListener('mousemove', (event) => {
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+function updateFromPointer(e) {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+}
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  pointerDown = true;
+  updateFromPointer(e);
+  lastGroundPoint = null; // reset delta at gesture start
+  try {
+    renderer.domElement.setPointerCapture(e.pointerId);
+  } catch {}
+  if (e.pointerType === 'touch') e.preventDefault();
 });
 
-// Touch input: treat as wind injection only while touching
-renderer.domElement.addEventListener(
-  'touchstart',
-  (e) => {
-    if (e.touches && e.touches.length > 0) {
-      const t = e.touches[0];
-      mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
-      touchActive = true;
-      lastGroundPoint = null; // reset delta at gesture start
-    }
-    e.preventDefault();
-  },
-  { passive: false }
-);
+renderer.domElement.addEventListener('pointermove', (e) => {
+  // Always track position; inject only when allowed (see animate loop)
+  updateFromPointer(e);
+  if (e.pointerType === 'touch' && pointerDown) e.preventDefault();
+});
 
-renderer.domElement.addEventListener(
-  'touchmove',
-  (e) => {
-    if (e.touches && e.touches.length > 0) {
-      const t = e.touches[0];
-      mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
-    }
-    e.preventDefault();
-  },
-  { passive: false }
-);
+renderer.domElement.addEventListener('pointerup', (e) => {
+  pointerDown = false;
+  currentGroundPoint = null;
+  lastGroundPoint = null;
+  try {
+    renderer.domElement.releasePointerCapture(e.pointerId);
+  } catch {}
+  if (e.pointerType === 'touch') e.preventDefault();
+});
 
-renderer.domElement.addEventListener(
-  'touchend',
-  (e) => {
-    touchActive = false;
-    currentGroundPoint = null;
-    lastGroundPoint = null;
-    e.preventDefault();
-  },
-  { passive: false }
-);
-
-renderer.domElement.addEventListener(
-  'touchcancel',
-  (e) => {
-    touchActive = false;
-    currentGroundPoint = null;
-    lastGroundPoint = null;
-    e.preventDefault();
-  },
-  { passive: false }
-);
+renderer.domElement.addEventListener('pointercancel', (e) => {
+  pointerDown = false;
+  currentGroundPoint = null;
+  lastGroundPoint = null;
+  if (e.pointerType === 'touch') e.preventDefault();
+});
 
 // Resize handler
 window.addEventListener('resize', () => {
@@ -201,8 +183,9 @@ function animate(currentTime) {
   const dt = Math.max(0.001, t - (uniforms.time.value || 0));
   uniforms.time.value = t;
 
-  // Raycast ground at current pointer; inject only on touch if on mobile
-  if (!isTouchDevice || touchActive) {
+  // Raycast ground at current pointer
+  // Desktop: active on hover/move; Mobile: active only while touching/dragging
+  if (!isTouchDevice || pointerDown) {
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObject(ground);
     lastGroundPoint = currentGroundPoint;
