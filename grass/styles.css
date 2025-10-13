@@ -8,6 +8,7 @@ body {
   width: 100vw;
   height: 100vh;
   z-index: 1000;
+  pointer-events: none; /* allow interactions to pass through to canvas */
   mix-blend-mode: color-burn;
   background: radial-gradient(
     ellipse at center top,
@@ -15,4 +16,3 @@ body {
     black 300%
   );
 }
-
