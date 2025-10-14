@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js';
 import Stats from 'https://unpkg.com/three@latest/examples/jsm/libs/stats.module.js';
 import {
   planeSize,
@@ -34,6 +35,13 @@ document.body.appendChild(renderer.domElement);
 // Prevent page scrolling/zooming from intercepting touch interactions
 renderer.domElement.style.touchAction = 'none';
 
+// Orbit controls
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.1;
+controls.target.set(0, 0, 0);
+controls.update();
+
 // Stats.js setup
 const stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb
@@ -46,9 +54,42 @@ document.body.appendChild(stats.dom);
 // Ground plane
 const groundGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
 groundGeometry.rotateX(-Math.PI / 2);
-const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
+const groundMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 scene.add(ground);
+
+// Keep ground plane width matched to viewport aspect
+function updateGroundToViewport() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const aspect = vh > 0 ? vw / vh : 1;
+  // Scale X relative to Z to match aspect; Y remains 1
+  ground.scale.set(aspect, 1, 1);
+}
+// Initialize ground size based on current viewport
+updateGroundToViewport();
+
+// Grass base positions normalized to [-0.5, 0.5] in X/Z.
+// We scale these to the ground's current world extents so grass adapts to viewport.
+const grassBasePositions = new Array(grassCount);
+
+// Instancing helper reused for placement
+const dummy = new THREE.Object3D();
+
+function applyGrassPositions() {
+  const extentX = planeSize * ground.scale.x;
+  const extentZ = planeSize * ground.scale.z;
+  for (let i = 0; i < grassCount; i++) {
+    const base = grassBasePositions[i];
+    const x = base.x * extentX;
+    const z = base.z * extentZ;
+    dummy.position.set(x, 0, z);
+    dummy.rotation.y = base.rot;
+    dummy.updateMatrix();
+    grass.setMatrixAt(i, dummy.matrix);
+  }
+  grass.instanceMatrix.needsUpdate = true;
+}
 
 // Grass setup
 const grassGeometry = new THREE.PlaneGeometry(
@@ -93,19 +134,15 @@ const grassMaterial = new THREE.ShaderMaterial({
 const grass = new THREE.InstancedMesh(grassGeometry, grassMaterial, grassCount);
 scene.add(grass);
 
-// Position instances
-const dummy = new THREE.Object3D();
+// Position instances based on ground extents using normalized base positions
 for (let i = 0; i < grassCount; i++) {
-  dummy.position.set(
-    Math.random() * planeSize - planeSize / 2,
-    0,
-    Math.random() * planeSize - planeSize / 2
-  );
-  dummy.rotation.y = Math.random() * Math.PI * 2;
-  dummy.updateMatrix();
-  grass.setMatrixAt(i, dummy.matrix);
+  grassBasePositions[i] = {
+    x: Math.random() - 0.5,
+    z: Math.random() - 0.5,
+    rot: Math.random() * Math.PI * 2,
+  };
 }
-grass.instanceMatrix.needsUpdate = true;
+applyGrassPositions();
 
 // Wind field: ping-pong FBO updated each frame
 const raycaster = new THREE.Raycaster();
@@ -169,6 +206,8 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  updateGroundToViewport();
+  applyGrassPositions();
 });
 
 // Debug panel moved to ./debugPanel.js
@@ -214,6 +253,7 @@ function animate(currentTime) {
   windField.update(mouseUv, dir, dt);
   uniforms.windTex.value = windField.texture;
 
+  controls.update();
   renderer.render(scene, camera);
   stats.end();
 }
