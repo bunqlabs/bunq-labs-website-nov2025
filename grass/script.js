@@ -54,7 +54,7 @@ document.body.appendChild(stats.dom);
 // Ground plane
 const groundGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
 groundGeometry.rotateX(-Math.PI / 2);
-const groundMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 scene.add(ground);
 
