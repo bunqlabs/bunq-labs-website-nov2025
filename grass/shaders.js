@@ -6,20 +6,27 @@ export const vertexShader = `
   uniform float turbulenceFrequency;
   uniform float damping;
   uniform float windStrength;  // scales field effect
-  uniform float planeSize;     // world units of ground plane extent
+  uniform vec2 planeExtent;    // world units of ground plane extents (x,z)
   uniform sampler2D windTex;   // RG wind vector field in UV space
+  // Glow uniforms (computed in vertex shader)
+  uniform float glowThreshold; // speed threshold where glow starts
+  uniform float glowBoost;     // max intensity addition
+  // Scroll conveyor offset in world Z units to keep turbulence coherent while scrolling
+  uniform float scrollOffsetZ;
+  // Per-instance stable random seed (0..1)
+  attribute float aRandomSeed;
   varying float vHeight;
   varying float vRandomSeed;
-  varying float vWindMag;      // for glow
+  varying float vGlow;         // per-vertex glow factor
   void main() {
     vec3 basePos = instanceMatrix[3].xyz;
     vec3 pos = position;
     float heightFactor = pos.y / 1.0;
     vHeight = heightFactor;
 
-    // Generate pseudo-random seed based on base position
-    float randomSeed = fract(sin(dot(basePos.xz, vec2(12.9898, 78.233))) * 43758.5453);
-    vRandomSeed = randomSeed;
+    // Use stable per-instance random seed
+    float randomSeed = aRandomSeed;
+    vRandomSeed = aRandomSeed;
 
     // Baseline random bending
     float randomAngle = randomSeed * 2.0 * 3.14159265359;
@@ -29,15 +36,21 @@ export const vertexShader = `
     pos.z += bendDir.y * bendAmount;
 
     // Sample wind field in UV mapped from world XZ
-    vec2 uv = basePos.xz / planeSize + 0.5;
+    vec2 uv = basePos.xz / planeExtent + 0.5;
     vec2 wind = texture2D(windTex, uv).xy;
-    vWindMag = length(wind);
+    float windMag = length(wind);
     pos.x += wind.x * windStrength * heightFactor;
     pos.z += wind.y * windStrength * heightFactor;
 
-    // Turbulence
-    float turbulence = sin(basePos.x * turbulenceFrequency + time) *
-                       sin(basePos.z * turbulenceFrequency + time) *
+    // Vertex-based glow (stronger toward the blade tip)
+    float glow = smoothstep(glowThreshold, glowThreshold * 3.0, windMag) * glowBoost;
+    vGlow = glow * heightFactor;
+
+    // Turbulence (offset by scroll so pattern moves with grass)
+    float tx = basePos.x;
+    float tz = basePos.z - scrollOffsetZ;
+    float turbulence = sin(tx * turbulenceFrequency + time) *
+                       sin(tz * turbulenceFrequency + time) *
                        turbulenceAmplitude * heightFactor;
     pos.x += turbulence;
     pos.z += turbulence;
@@ -51,20 +64,16 @@ export const vertexShader = `
 export const fragmentShader = `
   varying float vHeight;
   varying float vRandomSeed;
-  varying float vWindMag;
-  // Glow uniforms
-  uniform float glowThreshold; // speed threshold where glow starts
-  uniform float glowBoost;     // max intensity addition
+  varying float vGlow; // computed in vertex shader
   void main() {
     vec3 bottomColor = vec3(0.0, 0.0, 0.0); // Black base
     float grayValue = vRandomSeed * 0.1;     // Randomness in brightness
     vec3 topColor = vec3(grayValue, grayValue, grayValue); // Random grayscale
     vec3 baseColor = mix(bottomColor, topColor + 0.1, vHeight);
 
-    // Electric blue glow increases with local wind magnitude
+    // Electric blue glow from vertex shader
     vec3 glowColor = vec3(0.2, 0.6, 1.0); // electric blue
-    float glow = smoothstep(glowThreshold, glowThreshold * 3.0, vWindMag) * glowBoost;
-    vec3 color = baseColor + glow * glowColor;
+    vec3 color = baseColor + vGlow * glowColor;
 
     gl_FragColor = vec4(color, 1.0);
   }

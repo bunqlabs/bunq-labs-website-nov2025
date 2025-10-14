@@ -1,6 +1,6 @@
 // Tweakable configuration values for the grass scene
 
-export const planeSize = 25;
+export const planeSize = 35;
 export const grassCount = 50000;
 
 export const bladeWidth = 0.4;
@@ -10,7 +10,7 @@ export const taperFactor = 0.1; // 0..1 (fraction of base width at tip)
 
 // Initial uniform values exposed to the GUI
 export const initialUniforms = {
-  turbulenceAmplitude: 0.5,
+  turbulenceAmplitude: 0.2,
   turbulenceFrequency: 0.2,
   damping: 0.3,
   // Wind interaction via field
@@ -23,7 +23,7 @@ export const initialUniforms = {
   fieldResolution: 64, // texture resolution for the wind field
   // Glow behavior
   glowThreshold: 0.3,
-  glowBoost: 0.4,
+  glowBoost: 0.2,
 };
 
 // Optional camera configuration (kept here for convenience)
