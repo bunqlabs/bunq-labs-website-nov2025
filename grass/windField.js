@@ -12,6 +12,7 @@ export class WindField {
       advection: params.advection ?? 1.0,
       injectionRadius: params.injectionRadius ?? 0.08,
       injectionStrength: params.injectionStrength ?? 1.0,
+      injectionStrengthMax: params.injectionStrengthMax ?? 1.0,
     };
 
     // Detect the most compatible render target type/filters for mobile
@@ -56,6 +57,7 @@ export class WindField {
         brushDir: { value: new THREE.Vector2(0, 0) },
         injectionRadius: { value: this.params.injectionRadius },
         injectionStrength: { value: this.params.injectionStrength },
+        injectionStrengthMax: { value: this.params.injectionStrengthMax },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -77,6 +79,7 @@ export class WindField {
         uniform vec2 brushDir;   // world-space XZ delta scaled
         uniform float injectionRadius; // in UV units
         uniform float injectionStrength;
+        uniform float injectionStrengthMax;
 
         vec2 sampleVel(vec2 uv) {
           return texture2D(tVelocity, uv).xy;
@@ -103,13 +106,14 @@ export class WindField {
           // Decay
           vel *= clamp(decay, 0.0, 1.0);
 
-          // Injection from brush
-          if (brushPos.x >= 0.0) {
+          // Injection from brush (only when brushPos inside 0..1)
+          if (brushPos.x >= 0.0 && brushPos.x <= 1.0 && brushPos.y >= 0.0 && brushPos.y <= 1.0) {
             float d = distance(vUv, brushPos);
             float r = max(injectionRadius, 1e-5);
             float w = exp(-0.5 * (d * d) / (r * r));
-            vel += brushDir * (injectionStrength * w);
-          }
+            float s = min(injectionStrength, injectionStrengthMax);
+            vel += brushDir * (s * w);
+      }
 
           gl_FragColor = vec4(vel, 0.0, 1.0);
         }
@@ -165,6 +169,18 @@ export class WindField {
     if (diffusion !== undefined) this.material.uniforms.diffusion.value = diffusion;
     if (advection !== undefined) this.material.uniforms.advection.value = advection;
     if (injectionRadius !== undefined) this.material.uniforms.injectionRadius.value = injectionRadius;
-    if (injectionStrength !== undefined) this.material.uniforms.injectionStrength.value = injectionStrength;
+    if (injectionStrength !== undefined) {
+      const maxS = this.material.uniforms.injectionStrengthMax.value;
+      this.material.uniforms.injectionStrength.value = Math.min(injectionStrength, maxS);
+    }
+  }
+
+  setMaxInjectionStrength(value) {
+    if (value !== undefined) {
+      this.material.uniforms.injectionStrengthMax.value = value;
+      // Re-clamp current strength to the new max
+      const s = this.material.uniforms.injectionStrength.value;
+      this.material.uniforms.injectionStrength.value = Math.min(s, value);
+    }
   }
 }

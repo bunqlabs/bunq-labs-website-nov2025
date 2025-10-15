@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import Lenis from 'lenis';
 import { OrbitControls } from 'https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'https://unpkg.com/three@latest/examples/jsm/loaders/GLTFLoader.js';
 import Stats from 'https://unpkg.com/three@latest/examples/jsm/libs/stats.module.js';
 import {
   planeSize,
@@ -31,11 +32,20 @@ const renderer = new THREE.WebGLRenderer({
   antialias: window.devicePixelRatio < 2,
   powerPreference: 'high-performance',
 });
+renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
 renderer.setSize(window.innerWidth, window.innerHeight);
 const container = document.getElementById('webgl');
 container.appendChild(renderer.domElement);
 // Prevent page scrolling/zooming from intercepting touch interactions
 renderer.domElement.style.touchAction = 'none';
+
+// Light
+// const light = new THREE.PointLight(0xffffff, 100, 100);
+// light.position.set(0, 5, 0);
+// scene.add(light);
+// const lightHelperSize = 1;
+// const pointLightHelper = new THREE.PointLightHelper(light, lightHelperSize);
+// scene.add(pointLightHelper);
 
 // Orbit controls
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -81,12 +91,104 @@ try {
   lastScrollY = lenis?.scroll ?? window.scrollY;
 } catch {}
 
+// Initialize conveyor offset from current page scroll so model/grass start aligned
+// (initialized after SCROLL_NORM_PER_PIXEL is declared)
+
 // Ground plane
 const groundGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
 groundGeometry.rotateX(-Math.PI / 2);
 const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 scene.add(ground);
+
+// Custom shader for imported objects: grey base + top-down point light (no hover glow, no wireframe)
+const objectsVertexShader = `
+  varying vec3 vWorldPos;
+  varying vec3 vWorldNormal;
+  void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPos = worldPos.xyz;
+    vWorldNormal = normalize(mat3(modelMatrix) * normal);
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+  }
+`;
+
+const objectsFragmentShader = `
+  precision mediump float;
+  varying vec3 vWorldPos;
+  varying vec3 vWorldNormal;
+  uniform vec3 baseColor;
+  uniform float ambient;      // 0..1
+  // Pseudo point light from above (shader-only)
+  uniform vec3 lightPos;      // world position of light
+  uniform vec3 lightColor;    // light RGB
+  uniform float lightIntensity;// overall intensity
+  uniform float lightAtten;   // attenuation coefficient (~ small value)
+
+  void main() {
+    // Ambient term (cheap)
+    vec3 base = baseColor * ambient;
+
+    // Fast Lambert diffuse with distance attenuation
+    vec3 L = lightPos - vWorldPos;
+    float d2 = max(dot(L, L), 1e-6);
+    float invLen = inversesqrt(d2);
+    vec3 ldir = L * invLen; // normalized light dir
+    float ndotl = max(dot(normalize(vWorldNormal), ldir), 0.0);
+    float atten = 1.0 / (1.0 + lightAtten * d2);
+    vec3 diffuse = baseColor * lightColor * (lightIntensity * ndotl * atten);
+
+    // Combine ambient + diffuse (no hover glow)
+    vec3 color = base + diffuse;
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+const objectsMaterial = new THREE.ShaderMaterial({
+  vertexShader: objectsVertexShader,
+  fragmentShader: objectsFragmentShader,
+  uniforms: {
+    baseColor: { value: new THREE.Color(0xbbbbbb) },
+    ambient: { value: 0.1 },
+    // Top light defaults: above origin, cool white
+    lightPos: { value: new THREE.Vector3(0, 30, -20) },
+    lightColor: { value: new THREE.Color(0xffffff) },
+    lightIntensity: { value: 10.0 },
+    lightAtten: { value: 0.015 },
+  },
+  side: THREE.FrontSide,
+});
+
+// Load external GLTF model and apply objectsMaterial
+const gltfLoader = new GLTFLoader();
+// NOTE: Place the GLTF at this relative path (or update as needed)
+const objectUrl = 'assets/objects-in-grass.glb';
+gltfLoader.load(
+  objectUrl,
+  (gltf) => {
+    gltf.scene.traverse((child) => {
+      if (child.isMesh) {
+        // Apply our custom shader material (no wireframe attributes needed)
+        child.material = objectsMaterial;
+      }
+    });
+    // Ensure it sits on the ground (assuming model origin at base or center)
+    gltf.scene.position.set(0, 1, 0);
+    gltf.scene.scale.set(20, 20, 20);
+    scene.add(gltf.scene);
+    // Track for conveyor movement to match grass
+    window.__importedObject = gltf.scene;
+    window.__importedObjectBaseZ = gltf.scene.position.z;
+    // Apply initial position based on current page scroll
+    try {
+      updateImportedObjectConveyor();
+    } catch {}
+  },
+  undefined,
+  (err) => {
+    console.warn('Failed to load GLTF model at', objectUrl, err);
+  }
+);
 
 // Keep ground plane width matched to viewport aspect
 function updateGroundToViewport() {
@@ -109,7 +211,15 @@ const dummy = new THREE.Object3D();
 // Scroll-driven conveyor effect state (declare before first use)
 let scrollOffsetNormZ = 0;
 let lastScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
-let SCROLL_NORM_PER_PIXEL = 0.0003; // 1000px scroll == one full plane length
+let SCROLL_NORM_PER_PIXEL = 0.0002; // 1000px scroll == one full plane length
+
+// Initialize conveyor offset from current page scroll so model/grass start aligned
+// Only set the offset here; uniforms will be updated after they're created below
+{
+  const initialScroll =
+    typeof lenis?.scroll === 'number' ? lenis.scroll : window.scrollY || 0;
+  scrollOffsetNormZ = initialScroll * SCROLL_NORM_PER_PIXEL;
+}
 
 function applyGrassPositions() {
   const extentX = planeSize * ground.scale.x;
@@ -164,6 +274,8 @@ const uniforms = {
   planeExtent: { value: new THREE.Vector2(planeSize, planeSize) },
   // Scroll conveyor offset in world Z units for turbulence coherence
   scrollOffsetZ: { value: 0.0 },
+  // Normalized scroll offset (1 = one full plane length)
+  scrollOffsetNorm: { value: 0.0 },
   windTex: { value: null },
   // Glow
   glowThreshold: { value: initialUniforms.glowThreshold },
@@ -184,8 +296,19 @@ updatePlaneExtentUniform();
 function updateScrollUniform() {
   const extentZ = planeSize * ground.scale.z;
   uniforms.scrollOffsetZ.value = scrollOffsetNormZ * extentZ;
+  uniforms.scrollOffsetNorm.value = scrollOffsetNormZ;
 }
 updateScrollUniform();
+
+function updateImportedObjectConveyor() {
+  const obj = window.__importedObject;
+  const baseZ = window.__importedObjectBaseZ;
+  if (!obj || baseZ === undefined) return;
+  const extentZ = planeSize * ground.scale.z;
+  if (extentZ <= 1e-5) return;
+  // Move strictly with scroll without wrapping; at top (scroll=0) stays at baseZ
+  obj.position.z = baseZ - scrollOffsetNormZ * extentZ;
+}
 
 // Shaders are now provided by ./shaders.js
 
@@ -197,6 +320,8 @@ const grassMaterial = new THREE.ShaderMaterial({
 });
 
 const grass = new THREE.InstancedMesh(grassGeometry, grassMaterial, grassCount);
+// Disable frustum culling since shader scroll offsets blades beyond instance bounds
+grass.frustumCulled = false;
 scene.add(grass);
 
 // Position instances based on ground extents using normalized base positions
@@ -241,69 +366,65 @@ updateBendElements();
 // Lenis smooth scroll events drive the conveyor
 lenis.on('scroll', (e) => {
   const currentY = e.scroll;
-  const dy = currentY - lastScrollY;
-  lastScrollY = currentY;
-  scrollOffsetNormZ += dy * SCROLL_NORM_PER_PIXEL;
+  // Map absolute page scroll to normalized conveyor offset (top => 0)
+  scrollOffsetNormZ = currentY * SCROLL_NORM_PER_PIXEL;
   updateScrollUniform();
-  applyGrassPositions();
   updateBendElements();
+  updateImportedObjectConveyor();
 });
 
 // Wind field: ping-pong FBO updated each frame
-const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+const raycaster = new THREE.Raycaster();
+let isHovering = false; // only raycast/inject when cursor is over the canvas
 const windField = new WindField(renderer, initialUniforms.fieldResolution, {
   decay: initialUniforms.trailDecay,
   diffusion: initialUniforms.diffusion,
   advection: initialUniforms.advection,
   injectionRadius: initialUniforms.injectionRadius,
   injectionStrength: initialUniforms.injectionStrength,
+  injectionStrengthMax: initialUniforms.injectionStrengthMax,
 });
 uniforms.windTex.value = windField.texture;
 
-let currentGroundPoint = null; // THREE.Vector3 or null
-let lastGroundPoint = null;
-
-// Pointer events: unify mouse and touch, capture drags/swipes on mobile
-const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-let pointerDown = false;
+// Pointer events (viewport-wide)
 
 function updateFromPointer(e) {
-  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  let cx = 0,
+    cy = 0;
+  if (e && e.touches && e.touches.length > 0) {
+    cx = e.touches[0].clientX;
+    cy = e.touches[0].clientY;
+  } else if (e && e.changedTouches && e.changedTouches.length > 0) {
+    cx = e.changedTouches[0].clientX;
+    cy = e.changedTouches[0].clientY;
+  } else if (e) {
+    cx = e.clientX;
+    cy = e.clientY;
+  }
+  mouse.x = (cx / window.innerWidth) * 2 - 1;
+  mouse.y = -(cy / window.innerHeight) * 2 + 1;
 }
 
-renderer.domElement.addEventListener('pointerdown', (e) => {
-  pointerDown = true;
-  updateFromPointer(e);
-  lastGroundPoint = null; // reset delta at gesture start
-  try {
-    renderer.domElement.setPointerCapture(e.pointerId);
-  } catch {}
-  if (e.pointerType === 'touch') e.preventDefault();
+// React while pointer is anywhere over the window (viewport-wide hover)
+window.addEventListener(
+  'pointermove',
+  (e) => {
+    updateFromPointer(e);
+    isHovering = true;
+  },
+  { capture: true }
+);
+// When pointer leaves the window or tab loses focus, stop hovering
+window.addEventListener('pointerout', (e) => {
+  if (!e.relatedTarget) {
+    isHovering = false;
+    window.__lastGroundPoint = null;
+  }
 });
-
-renderer.domElement.addEventListener('pointermove', (e) => {
-  // Always track position; inject only when allowed (see animate loop)
-  updateFromPointer(e);
-  if (e.pointerType === 'touch' && pointerDown) e.preventDefault();
-});
-
-renderer.domElement.addEventListener('pointerup', (e) => {
-  pointerDown = false;
-  currentGroundPoint = null;
-  lastGroundPoint = null;
-  try {
-    renderer.domElement.releasePointerCapture(e.pointerId);
-  } catch {}
-  if (e.pointerType === 'touch') e.preventDefault();
-});
-
-renderer.domElement.addEventListener('pointercancel', (e) => {
-  pointerDown = false;
-  currentGroundPoint = null;
-  lastGroundPoint = null;
-  if (e.pointerType === 'touch') e.preventDefault();
+window.addEventListener('blur', () => {
+  isHovering = false;
+  window.__lastGroundPoint = null;
 });
 
 // Resize handler
@@ -314,8 +435,8 @@ window.addEventListener('resize', () => {
   updateGroundToViewport();
   updatePlaneExtentUniform();
   updateScrollUniform();
-  applyGrassPositions();
   updateBendElements();
+  updateImportedObjectConveyor();
 });
 
 // Debug panel moved to ./debugPanel.js
@@ -341,38 +462,32 @@ function animate(currentTime) {
   const dt = Math.max(0.001, t - (uniforms.time.value || 0));
   uniforms.time.value = t;
 
-  // Raycast ground at current pointer
-  // Desktop: active on hover/move; Mobile: active only while touching/dragging
-  if (!isTouchDevice || pointerDown) {
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(ground);
-    lastGroundPoint = currentGroundPoint;
-    currentGroundPoint =
-      intersects.length > 0 ? intersects[0].point.clone() : null;
-  } else {
-    lastGroundPoint = null;
-    currentGroundPoint = null;
-  }
-
-  // Build injection params
+  // Build injection params using precise ground-plane raycast, aligned with shader mapping
+  const extentX = planeSize * ground.scale.x;
+  const extentZ = planeSize * ground.scale.z;
   let mouseUv = null;
-  let dir = new THREE.Vector2(0, 0);
-  if (currentGroundPoint && lastGroundPoint) {
-    // Map world XZ to UV 0..1
-    const extentX = planeSize * ground.scale.x;
-    const extentZ = planeSize * ground.scale.z;
-    const u = currentGroundPoint.x / extentX + 0.5;
-    const v = currentGroundPoint.z / extentZ + 0.5;
-    // Clamp to valid 0..1 so injection stays on the field
-    mouseUv = new THREE.Vector2(
-      Math.min(Math.max(u, 0), 1),
-      Math.min(Math.max(v, 0), 1)
-    );
-    const dx = currentGroundPoint.x - lastGroundPoint.x;
-    const dz = currentGroundPoint.z - lastGroundPoint.z;
-    dir.set(dx, dz);
+  const dir = new THREE.Vector2(0, 0);
+  if (isHovering) {
+    raycaster.setFromCamera(mouse, camera);
+    const hit = raycaster.intersectObject(ground, false);
+    if (hit.length > 0) {
+      const p = hit[0].point;
+      // Map world XZ to stationary ground UV (no scroll compensation)
+      const u = Math.min(Math.max(p.x / extentX + 0.5, 0), 1);
+      const v = Math.min(Math.max(p.z / extentZ + 0.5, 0), 1);
+      mouseUv = new THREE.Vector2(u, v);
+      if (!window.__lastGroundPoint)
+        window.__lastGroundPoint = new THREE.Vector3(p.x, p.y, p.z);
+      const dx = p.x - window.__lastGroundPoint.x;
+      const dz = p.z - window.__lastGroundPoint.z;
+      dir.set(dx, dz);
+      window.__lastGroundPoint.copy(p);
+    } else {
+      window.__lastGroundPoint = null;
+    }
+  } else {
+    window.__lastGroundPoint = null;
   }
-
   // Update wind field
   windField.update(mouseUv, dir, dt);
   uniforms.windTex.value = windField.texture;

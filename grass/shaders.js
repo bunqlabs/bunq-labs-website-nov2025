@@ -13,6 +13,8 @@ export const vertexShader = `
   uniform float glowBoost;     // max intensity addition
   // Scroll conveyor offset in world Z units to keep turbulence coherent while scrolling
   uniform float scrollOffsetZ;
+  // Normalized scroll offset in plane units (-inf..inf), 1 = one full plane length
+  uniform float scrollOffsetNorm;
   // Per-instance stable random seed (0..1)
   attribute float aRandomSeed;
   varying float vHeight;
@@ -35,8 +37,10 @@ export const vertexShader = `
     pos.x += bendDir.x * bendAmount;
     pos.z += bendDir.y * bendAmount;
 
-    // Sample wind field in UV mapped from world XZ
+    // Sample wind field in UV mapped from world XZ (stationary relative to ground)
     vec2 uv = basePos.xz / planeExtent + 0.5;
+    // Clamp to domain; do not scroll-wrap so UV stays fixed to ground
+    uv = vec2(clamp(uv.x, 0.0, 1.0), clamp(uv.y, 0.0, 1.0));
     vec2 wind = texture2D(windTex, uv).xy;
     float windMag = length(wind);
     pos.x += wind.x * windStrength * heightFactor;
@@ -55,9 +59,18 @@ export const vertexShader = `
     pos.x += turbulence;
     pos.z += turbulence;
 
-    // Compute world position
-    vec4 worldPos = modelViewMatrix * instanceMatrix * vec4(pos, 1.0);
-    gl_Position = projectionMatrix * worldPos;
+    // Apply conveyor offset on world Z (independent of instance rotation)
+    float extentZ = planeExtent.y;
+    float zNorm = basePos.z / max(extentZ, 1e-5);           // normalize to [-0.5, 0.5]
+    zNorm = fract(zNorm - scrollOffsetNorm + 0.5) - 0.5;    // scroll and wrap
+    float newZBase = zNorm * extentZ;
+    float deltaZ = newZBase - basePos.z;
+
+    // Compute world position from instance, then add world-space Z delta
+    vec4 worldPos = instanceMatrix * vec4(pos, 1.0);
+    worldPos.z += deltaZ;
+    // Project
+    gl_Position = projectionMatrix * modelViewMatrix * worldPos;
   }
 `;
 
@@ -67,12 +80,12 @@ export const fragmentShader = `
   varying float vGlow; // computed in vertex shader
   void main() {
     vec3 bottomColor = vec3(0.0, 0.0, 0.0); // Black base
-    float grayValue = vRandomSeed * 0.1;     // Randomness in brightness
+    float grayValue = vRandomSeed * 0.2 + 0.15;     // Randomness in brightness
     vec3 topColor = vec3(grayValue, grayValue, grayValue); // Random grayscale
     vec3 baseColor = mix(bottomColor, topColor + 0.1, vHeight);
 
     // Electric blue glow from vertex shader
-    vec3 glowColor = vec3(0.2, 0.6, 1.0); // electric blue
+    vec3 glowColor = vec3(0.5, 0.5, 0.5); // electric blue
     vec3 color = baseColor + vGlow * glowColor;
 
     gl_FragColor = vec4(color, 1.0);

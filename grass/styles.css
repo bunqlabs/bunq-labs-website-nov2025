@@ -4,7 +4,8 @@ body {
 }
 
 #main-wrapper {
-  height: 500vh;
+  height: 500dvh;
+  overflow: hidden;
 }
 
 #webgl {
@@ -12,14 +13,14 @@ body {
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
 .bend-section {
-  padding-top: 100vh;
+  padding-top: 100dvh;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   display: grid;
   place-items: center;
   position: relative;
@@ -31,7 +32,7 @@ body {
   width: 80vw;
   height: auto;
   aspect-ratio: 16/9;
-  background: #000;
+  background: #fff;
 }
 
 [data-bend-on-scroll] {
@@ -43,7 +44,7 @@ body {
 .gradient {
   position: fixed;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   z-index: 1000;
   pointer-events: none; /* allow interactions to pass through to canvas */
   mix-blend-mode: color-burn;
