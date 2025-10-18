@@ -86,6 +86,7 @@ screen.add(screenLight);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.target.set(0, 0, 0);
+controls.enabled = false;
 
 // Debug GUI to toggle orbit controls
 const gui = new GUI();
