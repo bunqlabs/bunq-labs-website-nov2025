@@ -4,7 +4,7 @@ export const planeSize = 30;
 export const grassCount = 100000;
 
 export const bladeWidth = 0.2;
-export const bladeHeight = 1;
+export const bladeHeight = 0.85;
 export const bladeSegments = 1;
 export const taperFactor = 0.1; // 0..1 (fraction of base width at tip)
 
@@ -23,8 +23,8 @@ export const initialUniforms = {
   injectionStrengthMax: 1.0, // clamp for hover effect power
   fieldResolution: 64, // texture resolution for the wind field
   // Glow behavior
-  glowThreshold: 0.01,
-  glowBoost: 0.1,
+  glowThreshold: 0.05,
+  glowBoost: 0.2,
 };
 
 // Optional camera configuration (kept here for convenience)

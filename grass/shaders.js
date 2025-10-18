@@ -1,6 +1,6 @@
 // Exported vertex and fragment shaders for the grass material
 
-export const vertexShader = `
+export const grassVertexShader = `
   uniform float time;
   uniform float turbulenceAmplitude;
   uniform float turbulenceFrequency;
@@ -74,13 +74,13 @@ export const vertexShader = `
   }
 `;
 
-export const fragmentShader = `
+export const grassFragmentShader = `
   varying float vHeight;
   varying float vRandomSeed;
   varying float vGlow; // computed in vertex shader
   void main() {
     vec3 bottomColor = vec3(0.0, 0.0, 0.0); // Black base
-    float grayValue = vRandomSeed * 0.2 + 0.15;     // Randomness in brightness
+    float grayValue = vRandomSeed * 0.3 + 0.1;     // Randomness in brightness
     vec3 topColor = vec3(grayValue, grayValue, grayValue); // Random grayscale
     vec3 baseColor = mix(bottomColor, topColor + 0.1, vHeight);
 
