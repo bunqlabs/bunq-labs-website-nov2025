@@ -122,7 +122,7 @@ const dummy = new THREE.Object3D();
 
 // Scroll-driven conveyor effect state (declare before first use)
 let scrollOffsetNormZ = 0;
-let SCROLL_NORM_PER_PIXEL = 0.0002; // 1000px scroll == one full plane length
+let SCROLL_NORM_PER_PIXEL = 0.0005; // 1000px scroll == one full plane length
 
 // Initialize conveyor offset from current page scroll so model/grass start aligned
 // Only set the offset here; uniforms will be updated after they're created below
