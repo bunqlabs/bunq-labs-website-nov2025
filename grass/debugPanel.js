@@ -1,4 +1,4 @@
-import GUI from 'lil-gui';
+import GUI from "lil-gui";
 
 // Initializes the lil-gui debug panel for uniforms and optional controls.
 // Returns the GUI instance so callers can customize if needed.
@@ -9,74 +9,73 @@ export function initDebugPanel(
   configValues = null,
   controlsApi = null
 ) {
-  const gui = new GUI({ title: 'Grass' });
+  const gui = new GUI({ title: "Grass" });
 
-  const turbulence = gui.addFolder('Turbulence');
+  const turbulence = gui.addFolder("Turbulence");
   turbulence
-    .add(uniforms.turbulenceAmplitude, 'value', 0.0, 2.0, 0.1)
-    .name('Amplitude');
+    .add(uniforms.turbulenceAmplitude, "value", 0.0, 2.0, 0.1)
+    .name("Amplitude");
   turbulence
-    .add(uniforms.turbulenceFrequency, 'value', 0.0, 5.0, 0.1)
-    .name('Frequency');
-  turbulence
-    .add(uniforms.damping, 'value', 0.0, 2.0, 0.01)
-    .name('Damping');
+    .add(uniforms.turbulenceFrequency, "value", 0.0, 5.0, 0.1)
+    .name("Frequency");
+  turbulence.add(uniforms.damping, "value", 0.0, 2.0, 0.01).name("Damping");
 
-  const wind = gui.addFolder('Wind Field');
-  wind.add(uniforms.windStrength, 'value', 0.0, 5.0, 0.05).name('Strength');
+  const wind = gui.addFolder("Wind Field");
+  wind.add(uniforms.windStrength, "value", 0.0, 5.0, 0.05).name("Strength");
   if (windField && configValues) {
     wind
-      .add(configValues, 'trailDecay', 0.9, 0.999, 0.001)
-      .name('Decay')
+      .add(configValues, "trailDecay", 0.9, 0.999, 0.001)
+      .name("Decay")
       .onChange((v) => windField.setParams({ decay: v }));
     wind
-      .add(configValues, 'diffusion', 0.0, 1.0, 0.01)
-      .name('Diffusion')
+      .add(configValues, "diffusion", 0.0, 1.0, 0.01)
+      .name("Diffusion")
       .onChange((v) => windField.setParams({ diffusion: v }));
     wind
-      .add(configValues, 'advection', 0.0, 3.0, 0.05)
-      .name('Advection')
+      .add(configValues, "advection", 0.0, 3.0, 0.05)
+      .name("Advection")
       .onChange((v) => windField.setParams({ advection: v }));
     wind
-      .add(configValues, 'injectionRadius', 0.005, 0.2, 0.001)
-      .name('Brush Radius')
+      .add(configValues, "injectionRadius", 0.005, 0.2, 0.001)
+      .name("Brush Radius")
       .onChange((v) => windField.setParams({ injectionRadius: v }));
     wind
-      .add(configValues, 'injectionStrength', 0.1, 5.0, 0.05)
-      .name('Brush Strength')
+      .add(configValues, "injectionStrength", 0.1, 5.0, 0.05)
+      .name("Brush Strength")
       .onChange((v) => windField.setParams({ injectionStrength: v }));
   }
   if (controlsApi) {
-    const cam = gui.addFolder('Camera');
+    const cam = gui.addFolder("Camera");
     const params = {
       orbitControls: !!controlsApi.getOrbitEnabled?.(),
       scrollLoops:
-        typeof controlsApi.getScrollSpeed === 'function'
+        typeof controlsApi.getScrollSpeed === "function"
           ? controlsApi.getScrollSpeed()
           : 4,
       bendMax:
-        typeof controlsApi.getBendMax === 'function'
+        typeof controlsApi.getBendMax === "function"
           ? controlsApi.getBendMax()
           : -8,
     };
     cam
-      .add(params, 'orbitControls')
-      .name('Orbit Controls')
+      .add(params, "orbitControls")
+      .name("Orbit Controls")
       .onChange((v) => controlsApi.setOrbitEnabled?.(!!v));
     cam
-      .add(params, 'scrollLoops', 1, 12, 0.5)
-      .name('Scroll Loops')
+      .add(params, "scrollLoops", 1, 12, 0.5)
+      .name("Scroll Loops")
       .onChange((v) => controlsApi.setScrollSpeed?.(v));
     cam
-      .add(params, 'bendMax', 0, 30, 0.5)
-      .name('Bend Max (deg)')
+      .add(params, "bendMax", 0, 30, 0.5)
+      .name("Bend Max (deg)")
       .onChange((v) => controlsApi.setBendMax?.(v));
   }
   // Glow controls
-  const glow = gui.addFolder('Glow');
-  glow
-    .add(uniforms.glowThreshold, 'value', 0.0, 10.0, 0.1)
-    .name('Threshold');
-  glow.add(uniforms.glowBoost, 'value', 0.0, 2.0, 0.05).name('Boost');
+  const glow = gui.addFolder("Glow");
+  glow.add(uniforms.glowThreshold, "value", 0.0, 10.0, 0.1).name("Threshold");
+  glow.add(uniforms.glowBoost, "value", 0.0, 2.0, 0.05).name("Boost");
+
+  gui.close();
+
   return gui;
 }
