@@ -4,41 +4,18 @@ body {
 }
 
 #main-wrapper {
+  position: relative;
+  width: 100vw;
   height: 500dvh;
   overflow: hidden;
 }
 
 #webgl {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
   width: 100vw;
   height: 100dvh;
   overflow: hidden;
-}
-
-.bend-section {
-  padding-top: 100dvh;
-  width: 100vw;
-  height: 100dvh;
-  display: grid;
-  place-items: center;
-  position: relative;
-  z-index: 2; /* above WebGL canvas */
-}
-
-.bend-media {
-  max-width: min(80vw, 960px);
-  width: 80vw;
-  height: auto;
-  aspect-ratio: 16/9;
-  background: #fff;
-}
-
-[data-bend-on-scroll] {
-  will-change: transform;
-  transform-origin: center center;
-  transform-style: preserve-3d;
 }
 
 .gradient {
@@ -48,9 +25,5 @@ body {
   z-index: 1000;
   pointer-events: none; /* allow interactions to pass through to canvas */
   mix-blend-mode: color-burn;
-  background: radial-gradient(
-    ellipse at center top,
-    white 0%,
-    black 350%
-  );
+  background: radial-gradient(ellipse at center top, white 0%, black 350%);
 }

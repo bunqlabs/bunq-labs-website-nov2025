@@ -9,33 +9,40 @@ export function initDebugPanel(
   configValues = null,
   controlsApi = null
 ) {
-  const gui = new GUI();
-  gui
+  const gui = new GUI({ title: 'Grass' });
+
+  const turbulence = gui.addFolder('Turbulence');
+  turbulence
     .add(uniforms.turbulenceAmplitude, 'value', 0.0, 2.0, 0.1)
-    .name('Turbulence Amplitude');
-  gui
+    .name('Amplitude');
+  turbulence
     .add(uniforms.turbulenceFrequency, 'value', 0.0, 5.0, 0.1)
-    .name('Turbulence Frequency');
-  gui
+    .name('Frequency');
+  turbulence
     .add(uniforms.damping, 'value', 0.0, 2.0, 0.01)
-    .name('Default Bend Factor');
-  // Wind controls
-  gui.add(uniforms.windStrength, 'value', 0.0, 5.0, 0.05).name('Wind Strength');
+    .name('Damping');
+
+  const wind = gui.addFolder('Wind Field');
+  wind.add(uniforms.windStrength, 'value', 0.0, 5.0, 0.05).name('Strength');
   if (windField && configValues) {
-    const wf = gui.addFolder('Wind Field');
-    wf.add(configValues, 'trailDecay', 0.9, 0.999, 0.001)
+    wind
+      .add(configValues, 'trailDecay', 0.9, 0.999, 0.001)
       .name('Decay')
       .onChange((v) => windField.setParams({ decay: v }));
-    wf.add(configValues, 'diffusion', 0.0, 1.0, 0.01)
+    wind
+      .add(configValues, 'diffusion', 0.0, 1.0, 0.01)
       .name('Diffusion')
       .onChange((v) => windField.setParams({ diffusion: v }));
-    wf.add(configValues, 'advection', 0.0, 3.0, 0.05)
+    wind
+      .add(configValues, 'advection', 0.0, 3.0, 0.05)
       .name('Advection')
       .onChange((v) => windField.setParams({ advection: v }));
-    wf.add(configValues, 'injectionRadius', 0.005, 0.2, 0.001)
+    wind
+      .add(configValues, 'injectionRadius', 0.005, 0.2, 0.001)
       .name('Brush Radius')
       .onChange((v) => windField.setParams({ injectionRadius: v }));
-    wf.add(configValues, 'injectionStrength', 0.1, 5.0, 0.05)
+    wind
+      .add(configValues, 'injectionStrength', 0.1, 5.0, 0.05)
       .name('Brush Strength')
       .onChange((v) => windField.setParams({ injectionStrength: v }));
   }
@@ -43,10 +50,10 @@ export function initDebugPanel(
     const cam = gui.addFolder('Camera');
     const params = {
       orbitControls: !!controlsApi.getOrbitEnabled?.(),
-      scrollSpeed:
+      scrollLoops:
         typeof controlsApi.getScrollSpeed === 'function'
           ? controlsApi.getScrollSpeed()
-          : 0.001,
+          : 4,
       bendMax:
         typeof controlsApi.getBendMax === 'function'
           ? controlsApi.getBendMax()
@@ -57,8 +64,8 @@ export function initDebugPanel(
       .name('Orbit Controls')
       .onChange((v) => controlsApi.setOrbitEnabled?.(!!v));
     cam
-      .add(params, 'scrollSpeed', -0.01, 0.01, 0.0003)
-      .name('Scroll Speed')
+      .add(params, 'scrollLoops', 1, 12, 0.5)
+      .name('Scroll Loops')
       .onChange((v) => controlsApi.setScrollSpeed?.(v));
     cam
       .add(params, 'bendMax', 0, 30, 0.5)
@@ -66,9 +73,10 @@ export function initDebugPanel(
       .onChange((v) => controlsApi.setBendMax?.(v));
   }
   // Glow controls
-  gui
+  const glow = gui.addFolder('Glow');
+  glow
     .add(uniforms.glowThreshold, 'value', 0.0, 10.0, 0.1)
-    .name('Glow Threshold');
-  gui.add(uniforms.glowBoost, 'value', 0.0, 2.0, 0.05).name('Glow Boost');
+    .name('Threshold');
+  glow.add(uniforms.glowBoost, 'value', 0.0, 2.0, 0.05).name('Boost');
   return gui;
 }

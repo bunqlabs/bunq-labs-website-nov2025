@@ -1,14 +1,13 @@
-import * as THREE from 'three';
-import Lenis from 'lenis';
-import { OrbitControls } from 'https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js';
+import * as THREE from "three";
+import { OrbitControls } from "https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js";
 // Model loading and object material logic
 import {
   loadObjectsFromData,
   updateImportedObjectConveyor,
   objects as objectsData,
-} from './objects.js';
+} from "./objects.js";
 
-import Stats from 'https://unpkg.com/three@latest/examples/jsm/libs/stats.module.js';
+import Stats from "https://unpkg.com/three@latest/examples/jsm/libs/stats.module.js";
 import {
   planeSize,
   grassCount,
@@ -18,10 +17,10 @@ import {
   taperFactor,
   initialUniforms,
   cameraConfig,
-} from './config.js';
-import { grassVertexShader, grassFragmentShader } from './shaders.js';
-import { initDebugPanel } from './debugPanel.js';
-import { WindField } from './windField.js';
+} from "./config.js";
+import { grassVertexShader, grassFragmentShader } from "./shaders.js";
+import { initDebugPanel } from "./debugPanel.js";
+import { WindField } from "./windField.js";
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -36,14 +35,14 @@ camera.lookAt(...cameraConfig.lookAt);
 
 const renderer = new THREE.WebGLRenderer({
   antialias: window.devicePixelRatio < 2,
-  powerPreference: 'high-performance',
+  powerPreference: "high-performance",
 });
 renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
 renderer.setSize(window.innerWidth, window.innerHeight);
-const container = document.getElementById('webgl');
+const container = document.getElementById("webgl");
 container.appendChild(renderer.domElement);
 // Prevent page scrolling/zooming from intercepting touch interactions
-renderer.domElement.style.touchAction = 'none';
+renderer.domElement.style.touchAction = "none";
 
 // Orbit controls
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -65,6 +64,7 @@ function getOrbitControlsEnabled() {
 // Expose scroll speed controls for debug panel
 function setScrollSpeed(v) {
   SCROLL_NORM_PER_PIXEL = v;
+  updateScrollState(window.scrollY || 0);
 }
 function getScrollSpeed() {
   return SCROLL_NORM_PER_PIXEL;
@@ -73,21 +73,15 @@ function getScrollSpeed() {
 // Stats.js setup
 const stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb
-stats.dom.style.position = 'absolute';
-stats.dom.style.left = '10px';
-stats.dom.style.top = '10px';
-stats.dom.style.zIndex = '1001'; // above gradient overlay
-container.appendChild(stats.dom);
-
-// Lenis smooth scroll
-const lenis = new Lenis({
-  smoothWheel: true,
-  smoothTouch: true,
-});
-// Initialize lastScrollY to current scroll for consistent delta
-try {
-  lastScrollY = lenis?.scroll ?? window.scrollY;
-} catch {}
+stats.dom.style.position = "absolute";
+stats.dom.style.left = "10px";
+stats.dom.style.top = "10px";
+stats.dom.style.zIndex = "1001"; // above gradient overlay
+if (document.body) {
+  document.body.appendChild(stats.dom);
+} else {
+  container.appendChild(stats.dom);
+}
 
 // Ground plane
 const groundGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
@@ -128,14 +122,12 @@ const dummy = new THREE.Object3D();
 
 // Scroll-driven conveyor effect state (declare before first use)
 let scrollOffsetNormZ = 0;
-let lastScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
 let SCROLL_NORM_PER_PIXEL = 0.0002; // 1000px scroll == one full plane length
 
 // Initialize conveyor offset from current page scroll so model/grass start aligned
 // Only set the offset here; uniforms will be updated after they're created below
 {
-  const initialScroll =
-    typeof lenis?.scroll === 'number' ? lenis.scroll : window.scrollY || 0;
+  const initialScroll = window.scrollY || 0;
   scrollOffsetNormZ = initialScroll * SCROLL_NORM_PER_PIXEL;
 }
 
@@ -178,7 +170,7 @@ grassGeometry.translate(0, bladeHeight / 2, 0);
 const randomSeeds = new Float32Array(grassCount);
 for (let i = 0; i < grassCount; i++) randomSeeds[i] = Math.random();
 grassGeometry.setAttribute(
-  'aRandomSeed',
+  "aRandomSeed",
   new THREE.InstancedBufferAttribute(randomSeeds, 1)
 );
 
@@ -248,7 +240,7 @@ applyGrassPositions();
 let BEND_MAX_DEG = -8; // default max bend in degrees
 function updateBendElements() {
   const centerY = window.innerHeight / 2;
-  const els = document.querySelectorAll('[data-bend-on-scroll]');
+  const els = document.querySelectorAll("[data-bend-on-scroll]");
   els.forEach((el) => {
     const rect = el.getBoundingClientRect();
     const elCenter = rect.top + rect.height / 2;
@@ -273,15 +265,21 @@ function setBendMax(v) {
 // Initialize bend once on load
 updateBendElements();
 
-// Lenis smooth scroll events drive the conveyor
-lenis.on('scroll', (e) => {
-  const currentY = e.scroll;
-  // Map absolute page scroll to normalized conveyor offset (top => 0)
+function updateScrollState(currentY) {
   scrollOffsetNormZ = currentY * SCROLL_NORM_PER_PIXEL;
   updateScrollUniform();
   updateBendElements();
   updateImportedObjectConveyor(scrollOffsetNormZ, planeSize * ground.scale.z);
+}
+
+// Native scroll events drive the conveyor
+window.addEventListener("scroll", () => {
+  const currentY = window.scrollY || window.pageYOffset || 0;
+  updateScrollState(currentY);
 });
+
+// Sync initial state post-initialization
+updateScrollState(window.scrollY || 0);
 
 // Wind field: ping-pong FBO updated each frame
 const mouse = new THREE.Vector2();
@@ -318,7 +316,7 @@ function updateFromPointer(e) {
 
 // React while pointer is anywhere over the window (viewport-wide hover)
 window.addEventListener(
-  'pointermove',
+  "pointermove",
   (e) => {
     updateFromPointer(e);
     isHovering = true;
@@ -326,19 +324,19 @@ window.addEventListener(
   { capture: true }
 );
 // When pointer leaves the window or tab loses focus, stop hovering
-window.addEventListener('pointerout', (e) => {
+window.addEventListener("pointerout", (e) => {
   if (!e.relatedTarget) {
     isHovering = false;
     window.__lastGroundPoint = null;
   }
 });
-window.addEventListener('blur', () => {
+window.addEventListener("blur", () => {
   isHovering = false;
   window.__lastGroundPoint = null;
 });
 
 // Resize handler
-window.addEventListener('resize', () => {
+window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -362,10 +360,6 @@ const gui = initDebugPanel(uniforms, windField, initialUniforms, {
 // Animation loop
 function animate(currentTime) {
   requestAnimationFrame(animate);
-  // Advance Lenis smooth scroll
-  try {
-    lenis.raf(currentTime);
-  } catch {}
   stats.begin();
   // Time and dt
   const t = currentTime * 0.001;

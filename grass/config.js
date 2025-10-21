@@ -27,6 +27,11 @@ export const initialUniforms = {
   glowBoost: 0.2,
 };
 
+// Scroll conveyor behaviour
+export const conveyorConfig = {
+  loops: 1, // number of full field loops across the entire page scroll
+};
+
 // Optional camera configuration (kept here for convenience)
 export const cameraConfig = {
   fov: 75,

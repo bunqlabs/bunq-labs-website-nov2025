@@ -1,15 +1,15 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-import GUI from 'lil-gui';
-import Lenis from 'lenis';
-import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-import { EffectComposer } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
-import gsap from 'https://unpkg.com/gsap@3.12.5/index.js?module';
-import Stats from 'https://unpkg.com/three@0.160.0/examples/jsm/libs/stats.module.js';
+import * as THREE from "three";
+import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+import GUI from "lil-gui";
+import Lenis from "lenis";
+import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+import { EffectComposer } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js";
+import gsap from "https://unpkg.com/gsap@3.12.5/index.js?module";
+import Stats from "https://unpkg.com/three@0.160.0/examples/jsm/libs/stats.module.js";
 
-const container = document.getElementById('app');
+const container = document.getElementById("app");
 
 const renderer = new THREE.WebGLRenderer({
   antialias: true,
@@ -29,13 +29,13 @@ const scene = new THREE.Scene();
 let bgTexture = null;
 function setGradientBackground() {
   if (bgTexture) bgTexture.dispose();
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = 2;
   canvas.height = 512;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  grad.addColorStop(0, '#000000'); // grey
-  grad.addColorStop(1, '#555555'); // black
+  grad.addColorStop(0, "#000000"); // grey
+  grad.addColorStop(1, "#555555"); // black
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   bgTexture = new THREE.CanvasTexture(canvas);
@@ -66,19 +66,19 @@ const screen = new THREE.Mesh(
 scene.add(screen);
 
 // Apply looping video as the screen material color (map)
-const video = document.createElement('video');
-video.src = './showreel/showreel.mp4';
+const video = document.createElement("video");
+video.src = "./showreel/showreel.mp4";
 video.muted = true;
 video.loop = true;
 video.playsInline = true;
-video.preload = 'auto';
+video.preload = "auto";
 video.autoplay = true;
-video.addEventListener('canplay', () => video.play().catch(() => {}), {
+video.addEventListener("canplay", () => video.play().catch(() => {}), {
   once: true,
 });
 const resumeVideo = () => video.play().catch(() => {});
-window.addEventListener('click', resumeVideo, { once: true });
-window.addEventListener('touchstart', resumeVideo, { once: true });
+window.addEventListener("click", resumeVideo, { once: true });
+window.addEventListener("touchstart", resumeVideo, { once: true });
 
 const videoTexture = new THREE.VideoTexture(video);
 videoTexture.colorSpace = THREE.SRGBColorSpace; // video is color data
@@ -112,16 +112,16 @@ controls.enabled = false;
 
 // Debug GUI to toggle orbit controls
 const gui = new GUI();
-gui.title('Debug');
-gui.add(controls, 'enabled').name('Orbit Controls');
+gui.title("Debug");
+gui.add(controls, "enabled").name("Orbit Controls");
 
 // FPS Stats (top-left)
 const stats = new Stats();
 stats.showPanel(0);
-stats.dom.style.position = 'fixed';
-stats.dom.style.left = '8px';
-stats.dom.style.top = '8px';
-stats.dom.style.zIndex = '1000';
+stats.dom.style.position = "fixed";
+stats.dom.style.left = "8px";
+stats.dom.style.top = "8px";
+stats.dom.style.zIndex = "1000";
 document.body.appendChild(stats.dom);
 
 // Postprocessing: UnrealBloomPass
@@ -130,7 +130,7 @@ const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.3, // strength
+  0.2, // strength
   4, // radius
   0.01 // threshold
 );
@@ -139,13 +139,13 @@ composer.addPass(bloomPass);
 const loader = new GLTFLoader();
 const texLoader = new THREE.TextureLoader();
 // Load mountain texture and use it for normal + displacement
-const mountainTex = texLoader.load('./mountain_texture.webp');
+const mountainTex = texLoader.load("./mountain_texture.webp");
 mountainTex.colorSpace = THREE.LinearSRGBColorSpace; // non-color data
 mountainTex.flipY = false; // match glTF UV convention
 
 loader.load(
   // Model resides next to this HTML
-  './mountain_export.glb',
+  "./mountain_export.glb",
   (gltf) => {
     const root = gltf.scene || gltf.scenes[0];
     root.traverse((obj) => {
@@ -175,11 +175,11 @@ loader.load(
     }
   },
   (err) => {
-    console.error('Failed to load GLB:', err);
-    const note = document.createElement('div');
-    note.className = 'ui badge error';
+    console.error("Failed to load GLB:", err);
+    const note = document.createElement("div");
+    note.className = "ui badge error";
     note.textContent =
-      'Could not load GLB. If opened from file://, run a local server.';
+      "Could not load GLB. If opened from file://, run a local server.";
     document.body.appendChild(note);
   }
 );
@@ -193,14 +193,14 @@ function onResize() {
   composer.setSize(w, h);
   bloomPass.setSize(w, h);
 }
-window.addEventListener('resize', onResize);
+window.addEventListener("resize", onResize);
 
 // Cursor-driven camera parallax with GSAP and scroll linkage
 const baseCam = camera.position.clone();
 let mouseOffsetX = 0;
 let mouseOffsetY = 0;
 let scrollOffsetY = 0;
-const heroEl = document.getElementById('hero');
+const heroEl = document.getElementById("hero");
 
 function clamp01(v) {
   return Math.max(0, Math.min(1, v));
@@ -213,11 +213,11 @@ function updateCameraFromOffsets() {
     x: targetX,
     y: targetY,
     duration: 0.001,
-    ease: 'power2.out',
+    ease: "power2.out",
   });
 }
 
-window.addEventListener('mousemove', (e) => {
+window.addEventListener("mousemove", (e) => {
   const nx = (e.clientX / window.innerWidth) * 2 - 1;
   const ny = (e.clientY / window.innerHeight) * 2 - 1;
   mouseOffsetX = nx * 0.03; // ±0.1 on X
@@ -231,16 +231,16 @@ function updateScrollOffset() {
   scrollOffsetY = -0.2 * progress; // move down up to -0.2 across the hero height
   updateCameraFromOffsets();
 }
-window.addEventListener('scroll', updateScrollOffset, { passive: true });
+window.addEventListener("scroll", updateScrollOffset, { passive: true });
 updateScrollOffset();
 
 // Average video color sampling via requestVideoFrameCallback (larger sample for stability)
-const sampleCanvas = document.createElement('canvas');
+const sampleCanvas = document.createElement("canvas");
 const sampleW = 16; // wider sampling to reduce rapid color changes
 const sampleH = 9;
 sampleCanvas.width = sampleW;
 sampleCanvas.height = sampleH;
-const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+const sampleCtx = sampleCanvas.getContext("2d", { willReadFrequently: true });
 sampleCtx.imageSmoothingEnabled = true;
 
 function updateLightFromVideo() {
@@ -267,7 +267,7 @@ function updateLightFromVideo() {
 }
 
 function startVideoSampling() {
-  if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+  if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
     const onFrame = () => {
       updateLightFromVideo();
       video.requestVideoFrameCallback(onFrame);
@@ -279,10 +279,10 @@ function startVideoSampling() {
   }
 }
 
-video.addEventListener('play', startVideoSampling, { once: true });
+video.addEventListener("play", startVideoSampling, { once: true });
 
 // Mild snowfall particles
-const snowCount = 1000;
+const snowCount = 500;
 const snowArea = { x: 0.5, y: 0.5, z: 0.5 };
 const snowGeo = new THREE.BufferGeometry();
 const snowPositions = new Float32Array(snowCount * 3);
@@ -291,10 +291,10 @@ for (let i = 0; i < snowCount; i++) {
   snowPositions[i * 3 + 0] = (Math.random() - 0.5) * snowArea.x;
   snowPositions[i * 3 + 1] = Math.random() * snowArea.y; // start above
   snowPositions[i * 3 + 2] = (Math.random() - 0.5) * snowArea.z;
-  snowSpeeds[i] = 0.05 + Math.random() * 1; // downward speed
+  snowSpeeds[i] = 0.05 + Math.random() * 5; // downward speed
 }
-snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPositions, 3));
-snowGeo.setAttribute('aSpeed', new THREE.BufferAttribute(snowSpeeds, 1));
+snowGeo.setAttribute("position", new THREE.BufferAttribute(snowPositions, 3));
+snowGeo.setAttribute("aSpeed", new THREE.BufferAttribute(snowSpeeds, 1));
 const snowMat = new THREE.PointsMaterial({
   color: 0xffffff,
   size: 0.004,
@@ -314,8 +314,8 @@ function animate() {
   camera.lookAt(0, 0, 0);
   // Light color updates are driven by requestVideoFrameCallback
   // update snowfall
-  const pos = snowGeo.getAttribute('position');
-  const spd = snowGeo.getAttribute('aSpeed');
+  const pos = snowGeo.getAttribute("position");
+  const spd = snowGeo.getAttribute("aSpeed");
   const t = performance.now() * 0.001;
   for (let i = 0; i < snowCount; i++) {
     let x = pos.getX(i) + Math.sin(i * 12.9898 + t * 0.5) * 0.0005;

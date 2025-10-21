@@ -1,14 +1,14 @@
-import * as THREE from 'three';
-import { GLTFLoader } from 'https://unpkg.com/three@latest/examples/jsm/loaders/GLTFLoader.js';
+import * as THREE from "three";
+import { GLTFLoader } from "https://unpkg.com/three@latest/examples/jsm/loaders/GLTFLoader.js";
 
 // Data schema describing models and their instances.
 // Keys follow the requested format: objects -> model 1, model 2, ...
 // rotation is in degrees [x, y, z]. location and scale are in world units.
 
 export const objects = {
-  'model 1': {
-    model_location: 'assets/objects/stone1/stone1.glb',
-    normal_map_location: 'assets/objects/stone1/stone1_normal.webp',
+  "model 1": {
+    model_location: "assets/objects/stone1/stone1.glb",
+    normal_map_location: "assets/objects/stone1/stone1_normal.webp",
     instances: {
       instance1: {
         location: [0, 1, 0],
@@ -19,23 +19,23 @@ export const objects = {
     shadow_map_location: null,
   },
 
-  'model 2': {
-    model_location: 'assets/objects/stone.glb',
-    normal_map_location: null,
-    instances: {
-      instance1: {
-        location: [10, 1, -10],
-        rotation: [0, 45, 0],
-        scale: [15, 15, 15],
-      },
-      instance2: {
-        location: [-12, 1, 8],
-        rotation: [0, -20, 0],
-        scale: [12, 12, 12],
-      },
-    },
-    shadow_map_location: null,
-  },
+  // 'model 2': {
+  //   model_location: 'assets/objects/stone.glb',
+  //   normal_map_location: null,
+  //   instances: {
+  //     instance1: {
+  //       location: [10, 1, -10],
+  //       rotation: [0, 45, 0],
+  //       scale: [15, 15, 15],
+  //     },
+  //     instance2: {
+  //       location: [-12, 1, 8],
+  //       rotation: [0, -20, 0],
+  //       scale: [12, 12, 12],
+  //     },
+  //   },
+  //   shadow_map_location: null,
+  // },
 };
 
 // Custom shader for imported objects: grey base + simple top-down light
@@ -173,10 +173,10 @@ export async function loadObjectsFromData(scene, data) {
         nm.wrapS = nm.wrapT = THREE.RepeatWrapping;
         // Ensure correct sampling for normal maps
         try {
-          if ('colorSpace' in nm) nm.colorSpace = THREE.NoColorSpace;
+          if ("colorSpace" in nm) nm.colorSpace = THREE.NoColorSpace;
         } catch {}
         try {
-          if ('encoding' in nm) nm.encoding = THREE.LinearEncoding;
+          if ("encoding" in nm) nm.encoding = THREE.LinearEncoding;
         } catch {}
         nm.flipY = false;
         // Clone material so each model can have its own normal map
@@ -195,7 +195,7 @@ export async function loadObjectsFromData(scene, data) {
         }
         material.needsUpdate = true;
       } catch (e) {
-        console.warn('Failed loading normal map', cfg.normal_map_location, e);
+        console.warn("Failed loading normal map", cfg.normal_map_location, e);
       }
     }
 
@@ -203,7 +203,7 @@ export async function loadObjectsFromData(scene, data) {
     const gltf = await new Promise((resolve, reject) => {
       gltfLoader.load(url, resolve, undefined, reject);
     }).catch((e) => {
-      console.warn('Failed to load GLTF', url, e);
+      console.warn("Failed to load GLTF", url, e);
       return null;
     });
     if (!gltf) continue;
@@ -215,7 +215,7 @@ export async function loadObjectsFromData(scene, data) {
 
     const instances = Array.isArray(cfg.instances)
       ? cfg.instances
-      : cfg.instances && typeof cfg.instances === 'object'
+      : cfg.instances && typeof cfg.instances === "object"
       ? Object.values(cfg.instances)
       : [];
     if (instances.length === 0) {
@@ -239,7 +239,7 @@ export async function loadObjectsFromData(scene, data) {
       root.position.set(loc[0] || 0, loc[1] || 0, loc[2] || 0);
       // rotation in degrees -> radians
       const rotDeg = Array.isArray(inst.rotation) ? inst.rotation : [0, 0, 0];
-      const toRad = (d) => (typeof d === 'number' ? (d * Math.PI) / 180 : 0);
+      const toRad = (d) => (typeof d === "number" ? (d * Math.PI) / 180 : 0);
       root.rotation.set(toRad(rotDeg[0]), toRad(rotDeg[1]), toRad(rotDeg[2]));
       // scale
       const scl = Array.isArray(inst.scale) ? inst.scale : [1, 1, 1];
