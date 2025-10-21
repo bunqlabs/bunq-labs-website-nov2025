@@ -62,7 +62,7 @@ export function initDebugPanel(
       .name("Orbit Controls")
       .onChange((v) => controlsApi.setOrbitEnabled?.(!!v));
     cam
-      .add(params, "scrollLoops", 1, 12, 0.5)
+      .add(params, "scrollLoops", 0, 12, 0.0005)
       .name("Scroll Loops")
       .onChange((v) => controlsApi.setScrollSpeed?.(v));
     cam

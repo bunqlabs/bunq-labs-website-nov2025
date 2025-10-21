@@ -1,7 +1,7 @@
 // Tweakable configuration values for the grass scene
 
 export const planeSize = 30;
-export const grassCount = 100000;
+export const grassCount = 1000;
 
 export const bladeWidth = 0.2;
 export const bladeHeight = 0.85;
