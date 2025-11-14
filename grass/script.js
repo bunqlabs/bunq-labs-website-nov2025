@@ -1,13 +1,13 @@
-import * as THREE from "three";
-import { OrbitControls } from "https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js";
+import * as THREE from 'three';
+import { OrbitControls } from 'https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js';
 // Model loading and object material logic
 import {
   loadObjectsFromData,
   updateImportedObjectConveyor,
   objects as objectsData,
-} from "./objects.js";
+} from './objects.js';
 
-import Stats from "https://unpkg.com/three@latest/examples/jsm/libs/stats.module.js";
+import Stats from 'https://unpkg.com/three@latest/examples/jsm/libs/stats.module.js';
 import {
   planeSize,
   grassCount,
@@ -17,10 +17,10 @@ import {
   taperFactor,
   initialUniforms,
   cameraConfig,
-} from "./config.js";
-import { grassVertexShader, grassFragmentShader } from "./shaders.js";
-import { initDebugPanel } from "./debugPanel.js";
-import { WindField } from "./windField.js";
+} from './config.js';
+import { grassVertexShader, grassFragmentShader } from './shaders.js';
+import { initDebugPanel } from './debugPanel.js';
+import { WindField } from './windField.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -35,14 +35,14 @@ camera.lookAt(...cameraConfig.lookAt);
 
 const renderer = new THREE.WebGLRenderer({
   antialias: window.devicePixelRatio < 2,
-  powerPreference: "high-performance",
+  powerPreference: 'high-performance',
 });
 renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
 renderer.setSize(window.innerWidth, window.innerHeight);
-const container = document.getElementById("webgl");
+const container = document.getElementById('webgl');
 container.appendChild(renderer.domElement);
 // Prevent page scrolling/zooming from intercepting touch interactions
-renderer.domElement.style.touchAction = "none";
+renderer.domElement.style.touchAction = 'none';
 
 // Orbit controls
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -73,10 +73,10 @@ function getScrollSpeed() {
 // Stats.js setup
 const stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb
-stats.dom.style.position = "absolute";
-stats.dom.style.left = "10px";
-stats.dom.style.top = "10px";
-stats.dom.style.zIndex = "1001"; // above gradient overlay
+stats.dom.style.position = 'absolute';
+stats.dom.style.left = '10px';
+stats.dom.style.top = '10px';
+stats.dom.style.zIndex = '1001'; // above gradient overlay
 if (document.body) {
   document.body.appendChild(stats.dom);
 } else {
@@ -86,7 +86,7 @@ if (document.body) {
 // Ground plane
 const groundGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
 groundGeometry.rotateX(-Math.PI / 2);
-const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
+const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 scene.add(ground);
 
@@ -170,7 +170,7 @@ grassGeometry.translate(0, bladeHeight / 2, 0);
 const randomSeeds = new Float32Array(grassCount);
 for (let i = 0; i < grassCount; i++) randomSeeds[i] = Math.random();
 grassGeometry.setAttribute(
-  "aRandomSeed",
+  'aRandomSeed',
   new THREE.InstancedBufferAttribute(randomSeeds, 1)
 );
 
@@ -240,7 +240,7 @@ applyGrassPositions();
 let BEND_MAX_DEG = -8; // default max bend in degrees
 function updateBendElements() {
   const centerY = window.innerHeight / 2;
-  const els = document.querySelectorAll("[data-bend-on-scroll]");
+  const els = document.querySelectorAll('[data-bend-on-scroll]');
   els.forEach((el) => {
     const rect = el.getBoundingClientRect();
     const elCenter = rect.top + rect.height / 2;
@@ -273,7 +273,7 @@ function updateScrollState(currentY) {
 }
 
 // Native scroll events drive the conveyor
-window.addEventListener("scroll", () => {
+window.addEventListener('scroll', () => {
   const currentY = window.scrollY || window.pageYOffset || 0;
   updateScrollState(currentY);
 });
@@ -316,7 +316,7 @@ function updateFromPointer(e) {
 
 // React while pointer is anywhere over the window (viewport-wide hover)
 window.addEventListener(
-  "pointermove",
+  'pointermove',
   (e) => {
     updateFromPointer(e);
     isHovering = true;
@@ -324,19 +324,19 @@ window.addEventListener(
   { capture: true }
 );
 // When pointer leaves the window or tab loses focus, stop hovering
-window.addEventListener("pointerout", (e) => {
+window.addEventListener('pointerout', (e) => {
   if (!e.relatedTarget) {
     isHovering = false;
     window.__lastGroundPoint = null;
   }
 });
-window.addEventListener("blur", () => {
+window.addEventListener('blur', () => {
   isHovering = false;
   window.__lastGroundPoint = null;
 });
 
 // Resize handler
-window.addEventListener("resize", () => {
+window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
